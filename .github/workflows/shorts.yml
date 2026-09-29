@@ -1,0 +1,17 @@
+name: YouTube Shorts Automation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  shorts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test automation
+        run: |
+          echo "YouTube Shorts automation started successfully."
+          echo "Next step: connect video processing and YouTube."
