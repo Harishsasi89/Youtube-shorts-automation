@@ -29,44 +29,44 @@ jobs:
           printf '%s' "$YOUTUBE_CLIENT_SECRET" > client_secret.json
           printf '%s' "$YOUTUBE_TOKEN" > token.json
 
-      - name: Test YouTube authentication
-        env:
-          YOUTUBE_TOKEN: ${{ secrets.YOUTUBE_TOKEN }}
+      - name: Test YouTube upload authorization
         run: |
           python - <<'PY'
           import json
           from google.oauth2.credentials import Credentials
-          from googleapiclient.discovery import build
 
           with open("token.json", "r") as f:
               token_data = json.load(f)
 
           credentials = Credentials.from_authorized_user_info(
-              token_data,
-              ["https://www.googleapis.com/auth/youtube.upload"]
+              token_data
           )
-
-          youtube = build(
-              "youtube",
-              "v3",
-              credentials=credentials
-          )
-
-          response = youtube.channels().list(
-              part="snippet",
-              mine=True
-          ).execute()
-
-          channels = response.get("items", [])
-
-          if not channels:
-              raise RuntimeError("No YouTube channel was found.")
-
-          channel = channels[0]["snippet"]
 
           print("================================")
           print("YOUTUBE AUTHENTICATION SUCCESS")
           print("================================")
-          print("Channel:", channel["title"])
-          print("GitHub can access your YouTube channel.")
+          print("Token loaded successfully.")
+          print("Credentials valid:", credentials.valid)
+          print("Has refresh token:", bool(credentials.refresh_token))
+          print("Authorized scopes:")
+
+          for scope in credentials.scopes or []:
+              print(" -", scope)
+
+          if not credentials.refresh_token:
+              raise RuntimeError("Refresh token is missing.")
+
+          if not credentials.scopes:
+              raise RuntimeError("OAuth scopes are missing.")
+
+          upload_scope = "https://www.googleapis.com/auth/youtube.upload"
+
+          if upload_scope not in credentials.scopes:
+              raise RuntimeError(
+                  "YouTube upload permission is missing."
+              )
+
+          print("")
+          print("YouTube upload permission confirmed.")
+          print("================================")
           PY
