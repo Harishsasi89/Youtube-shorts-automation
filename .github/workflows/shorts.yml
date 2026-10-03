@@ -309,7 +309,7 @@ jobs:
                   "categoryId": "22"
               },
               "status": {
-                  "privacyStatus": "private",
+                  "privacyStatus": "public",
                   "selfDeclaredMadeForKids": False
               }
           }
