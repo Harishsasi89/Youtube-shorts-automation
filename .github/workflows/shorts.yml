@@ -223,6 +223,96 @@ jobs:
               "YouTube upload permission confirmed."
           )
           PY
+      - name: Upload video to YouTube
+        if: ${{ github.event_name == 'repository_dispatch' && steps.duplicate_check.outputs.is_duplicate != 'true' }}
+        env:
+          DRIVE_FILE_NAME: ${{ github.event.client_payload.file_name }}
+        run: |
+          python - <<'PY'
+          import os
+
+          from google.oauth2.credentials import Credentials
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          file_name = os.path.basename(
+              os.environ["DRIVE_FILE_NAME"]
+          )
+
+          print("================================")
+          print("YOUTUBE UPLOAD STARTING")
+          print("================================")
+          print("File:", file_name)
+
+          credentials = Credentials.from_authorized_user_file(
+              "token.json"
+          )
+
+          youtube = build(
+              "youtube",
+              "v3",
+              credentials=credentials
+          )
+
+          request_body = {
+              "snippet": {
+                  "title": "YouTube Shorts Automation Test",
+                  "description": (
+                      "Automated YouTube Shorts upload test.\n\n"
+                      "For more Vijay & TVK updates, Subscribe to the channel ❤️"
+                  ),
+                  "tags": [
+                      "shorts",
+                      "youtube",
+                      "automation",
+                      "Vijay",
+                      "TVK"
+                  ],
+                  "categoryId": "22"
+              },
+              "status": {
+                  "privacyStatus": "private",
+                  "selfDeclaredMadeForKids": False
+              }
+          }
+
+          media = MediaFileUpload(
+              file_name,
+              mimetype="video/*",
+              resumable=True
+          )
+
+          request = youtube.videos().insert(
+              part="snippet,status",
+              body=request_body,
+              media_body=media
+          )
+
+          response = None
+
+          while response is None:
+              status, response = request.next_chunk()
+
+              if status:
+                  progress = int(
+                      status.progress() * 100
+                  )
+                  print(
+                      f"Upload progress: {progress}%"
+                  )
+
+          video_id = response["id"]
+
+          print("================================")
+          print("YOUTUBE UPLOAD SUCCESSFUL")
+          print("================================")
+          print("Video ID:", video_id)
+          print(
+              "URL:",
+              f"https://www.youtube.com/watch?v={video_id}"
+          )
+          print("Privacy: PRIVATE")
+          PY
 
       - name: Record processed video
         if: ${{ github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true' }}
