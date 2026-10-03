@@ -6,6 +6,9 @@ on:
   repository_dispatch:
     types: [new_video]
 
+permissions:
+  contents: write
+
 jobs:
   youtube-auth-test:
     runs-on: ubuntu-latest
@@ -50,6 +53,36 @@ jobs:
             echo "Drive File Name: ${{ github.event.client_payload.file_name }}"
           fi
 
+      - name: Check duplicate
+        if: github.event_name == 'repository_dispatch'
+        env:
+          DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          file_id = os.environ["DRIVE_FILE_ID"]
+
+          with open("processed_videos.json", "r") as f:
+              data = json.load(f)
+
+          processed = data.get("processed", [])
+
+          print("Checking Drive file ID:", file_id)
+
+          if file_id in processed:
+              print("================================")
+              print("DUPLICATE VIDEO")
+              print("================================")
+              print("This video has already been processed.")
+              print("Stopping workflow.")
+              sys.exit(1)
+
+          print("New video detected.")
+          print("Continuing automation.")
+
       - name: Download video from Google Drive
         if: github.event_name == 'repository_dispatch'
         env:
@@ -57,7 +90,6 @@ jobs:
           DRIVE_FILE_NAME: ${{ github.event.client_payload.file_name }}
         run: |
           python - <<'PY'
-          import io
           import json
           import os
 
@@ -67,12 +99,6 @@ jobs:
 
           file_id = os.environ["DRIVE_FILE_ID"]
           file_name = os.environ["DRIVE_FILE_NAME"]
-
-          print("================================")
-          print("GOOGLE DRIVE DOWNLOAD")
-          print("================================")
-          print("File:", file_name)
-          print("File ID:", file_id)
 
           with open("drive_service_account.json", "r") as f:
               service_account_info = json.load(f)
@@ -93,16 +119,16 @@ jobs:
               fields="id,name,mimeType,size"
           ).execute()
 
-          print("Drive file confirmed:")
+          print("================================")
+          print("GOOGLE DRIVE FILE")
+          print("================================")
           print("Name:", metadata.get("name"))
           print("MIME type:", metadata.get("mimeType"))
           print("Size:", metadata.get("size"))
 
           safe_name = os.path.basename(file_name)
 
-          request = drive.files().get_media(
-              fileId=file_id
-          )
+          request = drive.files().get_media(fileId=file_id)
 
           with open(safe_name, "wb") as output:
               downloader = MediaIoBaseDownload(
@@ -127,13 +153,11 @@ jobs:
           print("================================")
           print("DOWNLOAD SUCCESSFUL")
           print("================================")
-          print("Downloaded file:", safe_name)
-          print("Downloaded size:", downloaded_size, "bytes")
+          print("Downloaded:", safe_name)
+          print("Size:", downloaded_size, "bytes")
 
           if downloaded_size == 0:
               raise RuntimeError("Downloaded file is empty.")
-
-          print("Google Drive video is ready for processing.")
           PY
 
       - name: Test YouTube upload authorization
@@ -155,25 +179,51 @@ jobs:
           print("Token loaded successfully.")
           print("Credentials valid:", credentials.valid)
           print("Has refresh token:", bool(credentials.refresh_token))
-          print("Authorized scopes:")
-
-          for scope in credentials.scopes or []:
-              print(" -", scope)
-
-          if not credentials.refresh_token:
-              raise RuntimeError("Refresh token is missing.")
-
-          if not credentials.scopes:
-              raise RuntimeError("OAuth scopes are missing.")
 
           upload_scope = "https://www.googleapis.com/auth/youtube.upload"
 
-          if upload_scope not in credentials.scopes:
+          if upload_scope not in (credentials.scopes or []):
               raise RuntimeError(
                   "YouTube upload permission is missing."
               )
 
-          print("")
           print("YouTube upload permission confirmed.")
-          print("================================")
           PY
+
+      - name: Record processed video
+        if: github.event_name == 'repository_dispatch' && success()
+        env:
+          DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          file_id = os.environ["DRIVE_FILE_ID"]
+
+          with open("processed_videos.json", "r") as f:
+              data = json.load(f)
+
+          processed = data.setdefault("processed", [])
+
+          if file_id not in processed:
+              processed.append(file_id)
+
+          with open("processed_videos.json", "w") as f:
+              json.dump(data, f, indent=2)
+
+          print("Video recorded as processed.")
+          PY
+
+      - name: Commit processing record
+        if: github.event_name == 'repository_dispatch' && success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add processed_videos.json
+
+          git diff --cached --quiet || \
+            git commit -m "Record processed video"
+
+          git push
