@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -55,7 +56,7 @@ jobs:
 
       - name: Check duplicate
         id: duplicate_check
-        if: github.event_name == 'repository_dispatch'
+        if: ${{ github.event_name == 'repository_dispatch' }}
         env:
           DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
         run: |
@@ -81,6 +82,7 @@ jobs:
 
               with open(os.environ["GITHUB_OUTPUT"], "a") as output:
                   output.write("is_duplicate=true\n")
+
           else:
               print("================================")
               print("NEW VIDEO")
@@ -92,7 +94,7 @@ jobs:
           PY
 
       - name: Download video from Google Drive
-        if: github.event_name == 'repository_dispatch' && steps.duplicate_check.outputs.is_duplicate != 'true'
+        if: ${{ github.event_name == 'repository_dispatch' && steps.duplicate_check.outputs.is_duplicate != 'true' }}
         env:
           DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
           DRIVE_FILE_NAME: ${{ github.event.client_payload.file_name }}
@@ -136,9 +138,12 @@ jobs:
 
           safe_name = os.path.basename(file_name)
 
-          request = drive.files().get_media(fileId=file_id)
+          request = drive.files().get_media(
+              fileId=file_id
+          )
 
           with open(safe_name, "wb") as output:
+
               downloader = MediaIoBaseDownload(
                   output,
                   request,
@@ -165,14 +170,17 @@ jobs:
           print("Size:", downloaded_size, "bytes")
 
           if downloaded_size == 0:
-              raise RuntimeError("Downloaded file is empty.")
+              raise RuntimeError(
+                  "Downloaded file is empty."
+              )
           PY
 
       - name: Test YouTube upload authorization
-        if: github.event_name != 'repository_dispatch' || steps.duplicate_check.outputs.is_duplicate != 'true'
-        run: ||
+        if: ${{ github.event_name != 'repository_dispatch' || steps.duplicate_check.outputs.is_duplicate != 'true' }}
+        run: |
           python - <<'PY'
           import json
+
           from google.oauth2.credentials import Credentials
 
           with open("token.json", "r") as f:
@@ -185,21 +193,39 @@ jobs:
           print("================================")
           print("YOUTUBE AUTHENTICATION SUCCESS")
           print("================================")
-          print("Token loaded successfully.")
-          print("Credentials valid:", credentials.valid)
-          print("Has refresh token:", bool(credentials.refresh_token))
 
-          upload_scope = "https://www.googleapis.com/auth/youtube.upload"
+          print(
+              "Token loaded successfully."
+          )
 
-          if upload_scope not in (credentials.scopes or []):
+          print(
+              "Credentials valid:",
+              credentials.valid
+          )
+
+          print(
+              "Has refresh token:",
+              bool(credentials.refresh_token)
+          )
+
+          upload_scope = (
+              "https://www.googleapis.com/auth/youtube.upload"
+          )
+
+          if upload_scope not in (
+              credentials.scopes or []
+          ):
               raise RuntimeError(
                   "YouTube upload permission is missing."
               )
 
-          print("YouTube upload permission confirmed.")
+          print(
+              "YouTube upload permission confirmed."
+          )
           PY
+
       - name: Record processed video
-        if: github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true'
+        if: ${{ github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true' }}
         env:
           DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
         run: |
@@ -212,26 +238,37 @@ jobs:
           with open("processed_videos.json", "r") as f:
               data = json.load(f)
 
-          processed = data.setdefault("processed", [])
+          processed = data.setdefault(
+              "processed",
+              []
+          )
 
           if file_id not in processed:
               processed.append(file_id)
 
           with open("processed_videos.json", "w") as f:
-              json.dump(data, f, indent=2)
+              json.dump(
+                  data,
+                  f,
+                  indent=2
+              )
 
-          print("Video recorded as processed.")
+          print(
+              "Video recorded as processed."
+          )
           PY
 
       - name: Commit processing record
-        if: github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true'
+        if: ${{ github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add processed_videos.json
 
-          git diff --cached --quiet || \
+          if git diff --cached --quiet; then
+            echo "No processing record changes."
+          else
             git commit -m "Record processed video"
-
-          git push
+            git push
+          fi
