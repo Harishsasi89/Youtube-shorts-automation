@@ -3,6 +3,9 @@ name: YouTube Shorts Automation
 on:
   workflow_dispatch:
 
+  repository_dispatch:
+    types: [new_video]
+
 jobs:
   youtube-auth-test:
     runs-on: ubuntu-latest
@@ -28,6 +31,18 @@ jobs:
         run: |
           printf '%s' "$YOUTUBE_CLIENT_SECRET" > client_secret.json
           printf '%s' "$YOUTUBE_TOKEN" > token.json
+
+      - name: Show trigger information
+        run: |
+          echo "================================"
+          echo "SHORTS AUTOMATION TRIGGERED"
+          echo "================================"
+          echo "Event: ${{ github.event_name }}"
+
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "Drive File ID: ${{ github.event.client_payload.file_id }}"
+            echo "Drive File Name: ${{ github.event.client_payload.file_name }}"
+          fi
 
       - name: Test YouTube upload authorization
         run: |
