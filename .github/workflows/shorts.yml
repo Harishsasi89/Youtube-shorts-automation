@@ -32,6 +32,12 @@ jobs:
           printf '%s' "$YOUTUBE_CLIENT_SECRET" > client_secret.json
           printf '%s' "$YOUTUBE_TOKEN" > token.json
 
+      - name: Create Google Drive credentials
+        env:
+          GOOGLE_DRIVE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$GOOGLE_DRIVE_SERVICE_ACCOUNT" > drive_service_account.json
+
       - name: Show trigger information
         run: |
           echo "================================"
@@ -43,6 +49,92 @@ jobs:
             echo "Drive File ID: ${{ github.event.client_payload.file_id }}"
             echo "Drive File Name: ${{ github.event.client_payload.file_name }}"
           fi
+
+      - name: Download video from Google Drive
+        if: github.event_name == 'repository_dispatch'
+        env:
+          DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
+          DRIVE_FILE_NAME: ${{ github.event.client_payload.file_name }}
+        run: |
+          python - <<'PY'
+          import io
+          import json
+          import os
+
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaIoBaseDownload
+
+          file_id = os.environ["DRIVE_FILE_ID"]
+          file_name = os.environ["DRIVE_FILE_NAME"]
+
+          print("================================")
+          print("GOOGLE DRIVE DOWNLOAD")
+          print("================================")
+          print("File:", file_name)
+          print("File ID:", file_id)
+
+          with open("drive_service_account.json", "r") as f:
+              service_account_info = json.load(f)
+
+          credentials = service_account.Credentials.from_service_account_info(
+              service_account_info,
+              scopes=["https://www.googleapis.com/auth/drive.readonly"]
+          )
+
+          drive = build(
+              "drive",
+              "v3",
+              credentials=credentials
+          )
+
+          metadata = drive.files().get(
+              fileId=file_id,
+              fields="id,name,mimeType,size"
+          ).execute()
+
+          print("Drive file confirmed:")
+          print("Name:", metadata.get("name"))
+          print("MIME type:", metadata.get("mimeType"))
+          print("Size:", metadata.get("size"))
+
+          safe_name = os.path.basename(file_name)
+
+          request = drive.files().get_media(
+              fileId=file_id
+          )
+
+          with open(safe_name, "wb") as output:
+              downloader = MediaIoBaseDownload(
+                  output,
+                  request,
+                  chunksize=10 * 1024 * 1024
+              )
+
+              done = False
+
+              while not done:
+                  status, done = downloader.next_chunk()
+
+                  if status:
+                      print(
+                          f"Download progress: "
+                          f"{int(status.progress() * 100)}%"
+                      )
+
+          downloaded_size = os.path.getsize(safe_name)
+
+          print("================================")
+          print("DOWNLOAD SUCCESSFUL")
+          print("================================")
+          print("Downloaded file:", safe_name)
+          print("Downloaded size:", downloaded_size, "bytes")
+
+          if downloaded_size == 0:
+              raise RuntimeError("Downloaded file is empty.")
+
+          print("Google Drive video is ready for processing.")
+          PY
 
       - name: Test YouTube upload authorization
         run: |
