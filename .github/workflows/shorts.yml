@@ -281,48 +281,7 @@ jobs:
           # --------------------------------
           # YOUTUBE TAGS
           # --------------------------------
-
-          tags = [
-              "Vijay",
-              "TVK",
-              "Tamilaga Vettri Kazhagam",
-              "Tamilaga Vetri Kazhagam",
-              "TVK Vijay",
-              "Vijay live",
-              "TVK live",
-              "Vijay speech",
-              "Vijay today speech",
-              "Vijay news",
-              "Vijay news today",
-              "Thalapathy Vijay",
-              "Vijay Road Show",
-              "Vijay campaign",
-              "TVK campaign",
-              "TVK news today",
-              "TVK live today",
-              "Tamil Nadu",
-              "Tamil Nadu election",
-              "Tamil Nadu election 2026",
-              "election news",
-              "by election",
-              "by election 2026",
-              "election update",
-              "Dharapuram",
-              "Dharapuram news",
-              "Dharapuram election",
-              "Dharapuram election 2026",
-              "Dharapuram result",
-              "Dharapuram MLA",
-              "Dharapuram TVK candidate",
-              "Dharapuram constituency",
-              "Madhuranthagam",
-              "Madhuranthagam election",
-              "Madhuranthagam by election",
-              "Madhuranthagam constituency",
-              "TVK IT wing",
-              "TVK first maanadu",
-              "Shorts"
-          ]
+          tags = ["Vijay", "TVK", "Tamilaga Vetri Kazhagam", "TVK Vijay", "Thalapathy Vijay", "Vijay live", "TVK live", "Vijay speech", "Vijay news", "Vijay Road Show", "Vijay campaign", "TVK campaign", "Tamil Nadu", "Tamil Nadu election", "Election news", "Dharapuram", "Dharapuram news", "Dharapuram election", "Dharapuram result", "Madhuranthagam", "TVK IT wing", "Shorts"]
 
           print("================================")
           print("YOUTUBE UPLOAD STARTING")
