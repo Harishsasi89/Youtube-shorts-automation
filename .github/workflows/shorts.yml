@@ -54,6 +54,7 @@ jobs:
           fi
 
       - name: Check duplicate
+        id: duplicate_check
         if: github.event_name == 'repository_dispatch'
         env:
           DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
@@ -61,7 +62,6 @@ jobs:
           python - <<'PY'
           import json
           import os
-          import sys
 
           file_id = os.environ["DRIVE_FILE_ID"]
 
@@ -77,14 +77,22 @@ jobs:
               print("DUPLICATE VIDEO")
               print("================================")
               print("This video has already been processed.")
-              print("Stopping workflow.")
-              sys.exit(1)
+              print("Skipping this video.")
 
-          print("New video detected.")
-          print("Continuing automation.")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                  output.write("is_duplicate=true\n")
+          else:
+              print("================================")
+              print("NEW VIDEO")
+              print("================================")
+              print("This video has not been processed yet.")
+
+              with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                  output.write("is_duplicate=false\n")
+          PY
 
       - name: Download video from Google Drive
-        if: github.event_name == 'repository_dispatch'
+        if: github.event_name == 'repository_dispatch' && steps.duplicate_check.outputs.is_duplicate != 'true'
         env:
           DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
           DRIVE_FILE_NAME: ${{ github.event.client_payload.file_name }}
@@ -161,7 +169,8 @@ jobs:
           PY
 
       - name: Test YouTube upload authorization
-        run: |
+        if: github.event_name != 'repository_dispatch' || steps.duplicate_check.outputs.is_duplicate != 'true'
+        run: ||
           python - <<'PY'
           import json
           from google.oauth2.credentials import Credentials
@@ -189,9 +198,8 @@ jobs:
 
           print("YouTube upload permission confirmed.")
           PY
-
       - name: Record processed video
-        if: github.event_name == 'repository_dispatch' && success()
+        if: github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true'
         env:
           DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
         run: |
@@ -216,7 +224,7 @@ jobs:
           PY
 
       - name: Commit processing record
-        if: github.event_name == 'repository_dispatch' && success()
+        if: github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
