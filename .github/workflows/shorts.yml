@@ -230,6 +230,7 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import re
 
           from google.oauth2.credentials import Credentials
           from googleapiclient.discovery import build
@@ -239,10 +240,97 @@ jobs:
               os.environ["DRIVE_FILE_NAME"]
           )
 
+          # --------------------------------
+          # CREATE TITLE FROM FILE NAME
+          # --------------------------------
+
+          title = os.path.splitext(file_name)[0]
+
+          if title.startswith("SHORT__"):
+              title = title[len("SHORT__"):]
+
+          title = title.strip()
+
+          # Clean accidental spaces
+          title = re.sub(r"\s+", " ", title)
+
+          # Add Shorts branding
+          youtube_title = f"{title} 🔥 | #Shorts"
+
+          # YouTube title limit
+          youtube_title = youtube_title[:100]
+
+          # --------------------------------
+          # STANDARD DESCRIPTION
+          # --------------------------------
+
+          description = """📍 நேரலை காட்சிகளை உடனுக்குடன் காணுங்கள்!
+
+          தமிழக வெற்றிக் கழகத்தின் நிகழ்வுகள், தலைவரின் உரைகள், முக்கிய அறிவிப்புகள் மற்றும் கள நிகழ்வுகளை நேரலையில் உங்களுடன் பகிர்கிறோம்.
+
+          🔥 LIVE UPDATE | TVK | தமிழக வெற்றிக் கழகம்
+
+          👍 Like செய்யுங்கள்
+          🔔 Channel-ஐ Subscribe செய்து Bell Icon-ஐ அழுத்துங்கள்
+          📲 உங்கள் நண்பர்களுக்கும் இந்த Live-ஐ Share செய்யுங்கள்!
+          💬 உங்கள் கருத்துகளை Comment-ல் பகிருங்கள்.
+
+          #Vijay #TVK #TamilagaVetriKazhagam #VijaySpeech #TVKSpeech #TamilNadu #தமிழகம் #TVKLive #TVKVijay #தமிழகவெற்றிக்கழகம் #Shorts
+          """
+
+          # --------------------------------
+          # YOUTUBE TAGS
+          # --------------------------------
+
+          tags = [
+              "Vijay",
+              "TVK",
+              "Tamilaga Vettri Kazhagam",
+              "Tamilaga Vetri Kazhagam",
+              "TVK Vijay",
+              "Vijay live",
+              "TVK live",
+              "Vijay speech",
+              "Vijay today speech",
+              "Vijay news",
+              "Vijay news today",
+              "Thalapathy Vijay",
+              "Vijay Road Show",
+              "Vijay campaign",
+              "TVK campaign",
+              "TVK news today",
+              "TVK live today",
+              "Tamil Nadu",
+              "Tamil Nadu election",
+              "Tamil Nadu election 2026",
+              "election news",
+              "by election",
+              "by election 2026",
+              "election update",
+              "Dharapuram",
+              "Dharapuram news",
+              "Dharapuram election",
+              "Dharapuram election 2026",
+              "Dharapuram result",
+              "Dharapuram MLA",
+              "Dharapuram TVK candidate",
+              "Dharapuram constituency",
+              "Madhuranthagam",
+              "Madhuranthagam election",
+              "Madhuranthagam by election",
+              "Madhuranthagam constituency",
+              "TVK IT wing",
+              "TVK first maanadu",
+              "Shorts"
+          ]
+
           print("================================")
           print("YOUTUBE UPLOAD STARTING")
           print("================================")
           print("File:", file_name)
+          print("YouTube title:", youtube_title)
+          print("Description prepared.")
+          print("Tags:", len(tags))
 
           credentials = Credentials.from_authorized_user_file(
               "token.json"
@@ -256,18 +344,9 @@ jobs:
 
           request_body = {
               "snippet": {
-                  "title": "YouTube Shorts Automation Test",
-                  "description": (
-                      "Automated YouTube Shorts upload test.\n\n"
-                      "For more Vijay & TVK updates, Subscribe to the channel ❤️"
-                  ),
-                  "tags": [
-                      "shorts",
-                      "youtube",
-                      "automation",
-                      "Vijay",
-                      "TVK"
-                  ],
+                  "title": youtube_title,
+                  "description": description.strip(),
+                  "tags": tags,
                   "categoryId": "22"
               },
               "status": {
@@ -312,6 +391,7 @@ jobs:
               f"https://www.youtube.com/watch?v={video_id}"
           )
           print("Privacy: PRIVATE")
+          print("Title:", youtube_title)
           PY
 
       - name: Record processed video
