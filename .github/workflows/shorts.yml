@@ -352,7 +352,79 @@ jobs:
           print("Privacy: PRIVATE")
           print("Title:", youtube_title)
           PY
+      - name: Move video to COMPLETED
+        if: ${{ github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true' }}
+        env:
+          DRIVE_FILE_ID: ${{ github.event.client_payload.file_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
 
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+
+          file_id = os.environ["DRIVE_FILE_ID"]
+
+          with open("drive_service_account.json", "r") as f:
+              service_account_info = json.load(f)
+
+          credentials = service_account.Credentials.from_service_account_info(
+              service_account_info,
+              scopes=["https://www.googleapis.com/auth/drive"]
+          )
+
+          drive = build(
+              "drive",
+              "v3",
+              credentials=credentials
+          )
+
+          # Find the 03 - COMPLETED folder
+          response = drive.files().list(
+              q="name = '03 - COMPLETED' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+              spaces="drive",
+              fields="files(id,name)"
+          ).execute()
+
+          folders = response.get("files", [])
+
+          if not folders:
+              raise RuntimeError(
+                  "03 - COMPLETED folder was not found."
+              )
+
+          completed_folder_id = folders[0]["id"]
+
+          print("03 - COMPLETED folder found:")
+          print(completed_folder_id)
+
+          # Get current parents
+          file_metadata = drive.files().get(
+              fileId=file_id,
+              fields="id,name,parents"
+          ).execute()
+
+          file_name = file_metadata["name"]
+          old_parents = ",".join(
+              file_metadata.get("parents", [])
+          )
+
+          print("Moving:", file_name)
+
+          drive.files().update(
+              fileId=file_id,
+              addParents=completed_folder_id,
+              removeParents=old_parents,
+              fields="id,name,parents"
+          ).execute()
+
+          print("================================")
+          print("FILE MOVED SUCCESSFULLY")
+          print("================================")
+          print("File:", file_name)
+          print("Destination: 03 - COMPLETED")
+          PY
       - name: Record processed video
         if: ${{ github.event_name == 'repository_dispatch' && success() && steps.duplicate_check.outputs.is_duplicate != 'true' }}
         env:
